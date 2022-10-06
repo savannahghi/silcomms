@@ -1,0 +1,10 @@
+all-policies: false
+api-url: https://api.gitguardian.com
+exit-zero: false
+paths-ignore:
+  - '**/README.md'
+  - doc/*
+  - LICENSE
+  - .gitignore
+show-secrets: false
+verbose: false
