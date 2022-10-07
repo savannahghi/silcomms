@@ -1,5 +1,8 @@
+![Linting and Tests](https://github.com/savannahghi/silcomms/actions/workflows/ci.yaml/badge.svg)
+[![Coverage Status](https://coveralls.io/repos/github/savannahghi/silcomms/badge.svg?branch=main)](https://coveralls.io/github/savannahghi/silcomms?branch=main)
+
 #  silcomms Library
-silcomms is a library that implements Bewell's (https://developers.comms.slade360.co.ke/swagger-doc)[SILcomms] Bulk SMS functionality
+silcomms is a library that implements Bewell's [SILcomms](https://developers.comms.slade360.co.ke/swagger-doc) Bulk SMS functionality
 
 ### Installing it
 silcomms is compatible with modern Go releases in module mode, with Go installed:
