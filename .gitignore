@@ -1,0 +1,11 @@
+*.sh
+coverage.txt
+coverage.out
+.gitmessage.txt
+.idea/
+test_output.txt
+coverage.html
+coverage.json
+coverage_report.txt
+.vscode/
+venv
