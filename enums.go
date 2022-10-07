@@ -4,9 +4,12 @@ package silcomms
 type Status string
 
 const (
+	// StatusSuccess returns a `success` response
 	StatusSuccess Status = "success"
+	// StatusFailure returns a `failure` response
 	StatusFailure Status = "failure"
-	StatusError   Status = "error"
+	// StatusError returns an `error` response
+	StatusError Status = "error"
 )
 
 // IsValid returns true if a status is valid

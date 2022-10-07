@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	// COMMS_SENDER_ID
-	COMMS_SENDER_ID = serverutils.MustGetEnvVar("SIL_COMMS_SENDER_ID")
+	// commsSenderID is the ID used to send the SMS
+	commsSenderID = serverutils.MustGetEnvVar("SIL_COMMS_SENDER_ID")
 )
 
 // ICommsClient is the interface for the client to make API request to sil communications
@@ -20,14 +20,14 @@ type ICommsClient interface {
 	MakeRequest(ctx context.Context, method, path string, queryParams map[string]string, body interface{}, authorised bool) (*http.Response, error)
 }
 
-// SILCommsLib is the SDK implementation for interacting with the sil communications API
-type SILCommsLib struct {
+// CommsLib is the SDK implementation for interacting with the sil communications API
+type CommsLib struct {
 	Client ICommsClient
 }
 
 // NewSILCommsLib initializes a new implementation of the SIL Comms SDK
-func NewSILCommsLib(client ICommsClient) *SILCommsLib {
-	l := &SILCommsLib{
+func NewSILCommsLib(client ICommsClient) *CommsLib {
+	l := &CommsLib{
 		Client: client,
 	}
 
@@ -37,14 +37,14 @@ func NewSILCommsLib(client ICommsClient) *SILCommsLib {
 // SendBulkSMS returns a 202 Accepted synchronous response while the API attempts to send the SMS in the background.
 // An asynchronous call is made to the app's sms_callback URL with a notification that shows the Bulk SMS status.
 // An asynchronous call is made to the app's sms_callback individually for each of the recipients with the SMS status.
-func (l SILCommsLib) SendBulkSMS(ctx context.Context, message string, recipients []string) (*BulkSMSResponse, error) {
+func (l CommsLib) SendBulkSMS(ctx context.Context, message string, recipients []string) (*BulkSMSResponse, error) {
 	path := "/v1/sms/bulk/"
 	payload := struct {
 		Sender     string   `json:"sender"`
 		Message    string   `json:"message"`
 		Recipients []string `json:"recipients"`
 	}{
-		Sender:     COMMS_SENDER_ID,
+		Sender:     commsSenderID,
 		Message:    message,
 		Recipients: recipients,
 	}

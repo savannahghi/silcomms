@@ -42,7 +42,7 @@ func TestSILComms_Login(t *testing.T) {
 				})
 			}
 
-			s := &SILCommsClient{
+			s := &CommsClient{
 				client: tt.fields.client,
 			}
 			s.login()
@@ -83,7 +83,7 @@ func TestSILCommsClient_refreshAccessToken(t *testing.T) {
 				})
 			}
 
-			s := &SILCommsClient{
+			s := &CommsClient{
 				client:       tt.fields.client,
 				refreshToken: tt.fields.refreshToken,
 			}
@@ -175,7 +175,7 @@ func TestSILCommsClient_MakeRequest(t *testing.T) {
 				})
 			}
 
-			s := &SILCommsClient{
+			s := &CommsClient{
 				client:      tt.fields.client,
 				accessToken: tt.fields.accessToken,
 			}
