@@ -1,26 +1,15 @@
 package silcomms_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"io"
+	"fmt"
 	"net/http"
 	"testing"
 
 	"github.com/brianvoe/gofakeit"
+	"github.com/jarcoal/httpmock"
 	"github.com/savannahghi/silcomms"
 )
-
-// ClientMock ...
-type ClientMock struct {
-	MockMakeRequestFn func(ctx context.Context, method, path string, queryParams map[string]string, body interface{}, authorised bool) (*http.Response, error)
-}
-
-// MakeRequest ...
-func (c *ClientMock) MakeRequest(ctx context.Context, method, path string, queryParams map[string]string, body interface{}, authorised bool) (*http.Response, error) {
-	return c.MockMakeRequestFn(ctx, method, path, queryParams, body, authorised)
-}
 
 func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 	type args struct {
@@ -47,30 +36,23 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			client := &ClientMock{}
-			l := silcomms.NewSILCommsLib(client)
+			httpmock.Activate()
+			defer httpmock.DeactivateAndReset()
+			silcomms.MockLogin()
+
+			l := silcomms.NewSILCommsLib()
 
 			if tt.name == "happy case: send bulk sms" {
-				client.MockMakeRequestFn = func(ctx context.Context, method, path string, queryParams map[string]string, body interface{}, authorised bool) (*http.Response, error) {
-					msg := silcomms.APIResponse{
+				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/bulk/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
+					resp := silcomms.APIResponse{
 						Status:  silcomms.StatusSuccess,
 						Message: "success",
 						Data: silcomms.BulkSMSResponse{
-							GUID:       "",
-							Sender:     "",
-							Message:    "",
-							Recipients: []string{},
-							State:      "",
-							SMS:        []string{},
-							Created:    "",
-							Updated:    "",
+							GUID: gofakeit.UUID(),
 						},
 					}
-
-					payload, _ := json.Marshal(msg)
-
-					return &http.Response{StatusCode: http.StatusAccepted, Body: io.NopCloser(bytes.NewBuffer(payload))}, nil
-				}
+					return httpmock.NewJsonResponse(http.StatusAccepted, resp)
+				})
 			}
 
 			got, err := l.SendBulkSMS(tt.args.ctx, tt.args.message, tt.args.recipients)

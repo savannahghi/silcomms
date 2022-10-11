@@ -11,24 +11,21 @@ import (
 )
 
 var (
-	// commsSenderID is the ID used to send the SMS
-	commsSenderID = serverutils.MustGetEnvVar("SIL_COMMS_SENDER_ID")
+	// SenderID is the ID used to send the SMS
+	SenderID = serverutils.MustGetEnvVar("SIL_COMMS_SENDER_ID")
 )
-
-// ICommsClient is the interface for the client to make API request to sil communications
-type ICommsClient interface {
-	MakeRequest(ctx context.Context, method, path string, queryParams map[string]string, body interface{}, authorised bool) (*http.Response, error)
-}
 
 // CommsLib is the SDK implementation for interacting with the sil communications API
 type CommsLib struct {
-	Client ICommsClient
+	client *client
 }
 
 // NewSILCommsLib initializes a new implementation of the SIL Comms SDK
-func NewSILCommsLib(client ICommsClient) *CommsLib {
+func NewSILCommsLib() *CommsLib {
+	client := newClient()
+
 	l := &CommsLib{
-		Client: client,
+		client: client,
 	}
 
 	return l
@@ -44,12 +41,12 @@ func (l CommsLib) SendBulkSMS(ctx context.Context, message string, recipients []
 		Message    string   `json:"message"`
 		Recipients []string `json:"recipients"`
 	}{
-		Sender:     commsSenderID,
+		Sender:     SenderID,
 		Message:    message,
 		Recipients: recipients,
 	}
 
-	response, err := l.Client.MakeRequest(ctx, http.MethodPost, path, nil, payload, true)
+	response, err := l.client.MakeRequest(ctx, http.MethodPost, path, nil, payload, true)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make send bulk sms request: %w", err)
 	}
