@@ -15,14 +15,14 @@ import (
 )
 
 var (
-	// commsBaseURL represents the SIL-Comms base URL
-	commsBaseURL = serverutils.MustGetEnvVar("SIL_COMMS_BASE_URL")
+	// BaseURL represents the SIL-Comms base URL
+	BaseURL = serverutils.MustGetEnvVar("SIL_COMMS_BASE_URL")
 
-	// commsEmail is used for authentication against the SIL comms API
-	commsEmail = serverutils.MustGetEnvVar("SIL_COMMS_EMAIL")
+	// email is used for authentication against the SIL comms API
+	email = serverutils.MustGetEnvVar("SIL_COMMS_EMAIL")
 
-	// commsPassword is used for authentication against the SIL comms API
-	commsPassword = serverutils.MustGetEnvVar("SIL_COMMS_PASSWORD")
+	// password is used for authentication against the SIL comms API
+	password = serverutils.MustGetEnvVar("SIL_COMMS_PASSWORD")
 
 	// accessTokenTimeout shows the access token expiry time.
 	// After the access token expires, one is required to obtain a new one
@@ -32,9 +32,9 @@ var (
 	refreshTokenTimeout = 24 * time.Hour
 )
 
-// CommsClient is the client used to make API request to sil communications API
-type CommsClient struct {
-	client http.Client
+// It is the client used to make API request to sil communications API
+type client struct {
+	client *http.Client
 
 	refreshToken       string
 	refreshTokenTicker *time.Ticker
@@ -43,21 +43,26 @@ type CommsClient struct {
 	accessTokenTicker *time.Ticker
 }
 
-// NewSILCommsClient initializes a new SIL comms client instance
-func NewSILCommsClient() *CommsClient {
-	s := &CommsClient{
-		client:       http.Client{},
+// newClient initializes a new SIL comms client instance
+func newClient() *client {
+	s := &client{
+		client: &http.Client{
+			Timeout: time.Second * 10,
+		},
 		accessToken:  "",
 		refreshToken: "",
 	}
+
 	s.login()
+
+	// set up background routine to update tokens
 	go s.background()
 
 	return s
 }
 
 // executed as a go routine to update the api tokens when they timeout
-func (s *CommsClient) background() {
+func (s *client) background() {
 	for {
 		select {
 		case t := <-s.refreshTokenTicker.C:
@@ -72,7 +77,8 @@ func (s *CommsClient) background() {
 	}
 }
 
-func (s *CommsClient) setAccessToken(token string) {
+// setAccessToken sets the access token and updates the ticker timer
+func (s *client) setAccessToken(token string) {
 	s.accessToken = token
 	if s.accessTokenTicker != nil {
 		s.accessTokenTicker.Reset(accessTokenTimeout)
@@ -81,7 +87,8 @@ func (s *CommsClient) setAccessToken(token string) {
 	}
 }
 
-func (s *CommsClient) setRefreshToken(token string) {
+// setRefreshToken sets the access token and updates the ticker timer
+func (s *client) setRefreshToken(token string) {
 	s.refreshToken = token
 	if s.refreshTokenTicker != nil {
 		s.refreshTokenTicker.Reset(refreshTokenTimeout)
@@ -92,14 +99,14 @@ func (s *CommsClient) setRefreshToken(token string) {
 
 // login uses the provided credentials to login to the SIL communications backend
 // It obtains the necessary tokens required to make authenticated requests
-func (s *CommsClient) login() {
+func (s *client) login() {
 	path := "/auth/token/"
 	payload := struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}{
-		Email:    commsEmail,
-		Password: commsPassword,
+		Email:    email,
+		Password: password,
 	}
 
 	response, err := s.MakeRequest(context.Background(), http.MethodPost, path, nil, payload, false)
@@ -132,7 +139,7 @@ func (s *CommsClient) login() {
 
 }
 
-func (s *CommsClient) refreshAccessToken() {
+func (s *client) refreshAccessToken() {
 	path := "/auth/token/refresh/"
 	payload := struct {
 		Refresh string `json:"refresh"`
@@ -169,9 +176,9 @@ func (s *CommsClient) refreshAccessToken() {
 
 }
 
-// MakeRequest performs a HTTP request to the provided path
-func (s *CommsClient) MakeRequest(ctx context.Context, method, path string, queryParams map[string]string, body interface{}, authorised bool) (*http.Response, error) {
-	urlPath := fmt.Sprintf("%s%s", commsBaseURL, path)
+// MakeRequest performs a HTTP request to the provided path and parameters
+func (s *client) MakeRequest(ctx context.Context, method, path string, queryParams map[string]string, body interface{}, authorised bool) (*http.Response, error) {
+	urlPath := fmt.Sprintf("%s%s", BaseURL, path)
 	var request *http.Request
 
 	switch method {

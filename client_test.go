@@ -2,15 +2,31 @@ package silcomms
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"testing"
 
 	"github.com/jarcoal/httpmock"
 )
 
+// MockLogin mocks a mock login request to obtain a token
+func MockLogin() {
+	httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/auth/token/", BaseURL), func(r *http.Request) (*http.Response, error) {
+		resp := APIResponse{
+			Status:  StatusSuccess,
+			Message: "success",
+			Data: TokenResponse{
+				Refresh: "refresh",
+				Access:  "access",
+			},
+		}
+		return httpmock.NewJsonResponse(http.StatusOK, resp)
+	})
+}
+
 func TestSILComms_Login(t *testing.T) {
 	type fields struct {
-		client http.Client
+		client *http.Client
 	}
 	tests := []struct {
 		name   string
@@ -19,7 +35,7 @@ func TestSILComms_Login(t *testing.T) {
 		{
 			name: "happy case: successful login",
 			fields: fields{
-				client: http.Client{},
+				client: &http.Client{},
 			},
 		},
 	}
@@ -42,7 +58,7 @@ func TestSILComms_Login(t *testing.T) {
 				})
 			}
 
-			s := &CommsClient{
+			s := &client{
 				client: tt.fields.client,
 			}
 			s.login()
@@ -50,9 +66,9 @@ func TestSILComms_Login(t *testing.T) {
 	}
 }
 
-func TestSILCommsClient_refreshAccessToken(t *testing.T) {
+func TestSILclient_refreshAccessToken(t *testing.T) {
 	type fields struct {
-		client       http.Client
+		client       *http.Client
 		refreshToken string
 	}
 	tests := []struct {
@@ -60,8 +76,10 @@ func TestSILCommsClient_refreshAccessToken(t *testing.T) {
 		fields fields
 	}{
 		{
-			name:   "happy case: refresh access token",
-			fields: fields{},
+			name: "happy case: refresh access token",
+			fields: fields{
+				client: &http.Client{},
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -83,7 +101,7 @@ func TestSILCommsClient_refreshAccessToken(t *testing.T) {
 				})
 			}
 
-			s := &CommsClient{
+			s := &client{
 				client:       tt.fields.client,
 				refreshToken: tt.fields.refreshToken,
 			}
@@ -92,11 +110,7 @@ func TestSILCommsClient_refreshAccessToken(t *testing.T) {
 	}
 }
 
-func TestSILCommsClient_MakeRequest(t *testing.T) {
-	type fields struct {
-		client      http.Client
-		accessToken string
-	}
+func TestSILclient_MakeRequest(t *testing.T) {
 	type args struct {
 		ctx         context.Context
 		method      string
@@ -107,13 +121,11 @@ func TestSILCommsClient_MakeRequest(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		fields  fields
 		args    args
 		wantErr bool
 	}{
 		{
-			name:   "happy case: make authenticated request",
-			fields: fields{},
+			name: "happy case: make authenticated request",
 			args: args{
 				ctx:         context.Background(),
 				method:      http.MethodPost,
@@ -125,8 +137,7 @@ func TestSILCommsClient_MakeRequest(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:   "happy case: make unauthenticated request",
-			fields: fields{},
+			name: "happy case: make unauthenticated request",
 			args: args{
 				ctx:         context.Background(),
 				method:      http.MethodPost,
@@ -142,6 +153,7 @@ func TestSILCommsClient_MakeRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			httpmock.Activate()
 			defer httpmock.DeactivateAndReset()
+			MockLogin()
 
 			httpmock.RegisterResponder(http.MethodPost, "/v1/sms/bulk/", func(r *http.Request) (*http.Response, error) {
 				resp := APIResponse{
@@ -175,17 +187,14 @@ func TestSILCommsClient_MakeRequest(t *testing.T) {
 				})
 			}
 
-			s := &CommsClient{
-				client:      tt.fields.client,
-				accessToken: tt.fields.accessToken,
-			}
+			s := newClient()
 			got, err := s.MakeRequest(tt.args.ctx, tt.args.method, tt.args.path, tt.args.queryParams, tt.args.body, tt.args.authorised)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("SILCommsClient.MakeRequest() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("SILclient.MakeRequest() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !tt.wantErr && got == nil {
-				t.Errorf("SILCommsClient.MakeRequest() expected response not to be nil for %v", tt.name)
+				t.Errorf("SILclient.MakeRequest() expected response not to be nil for %v", tt.name)
 				return
 			}
 		})
