@@ -179,8 +179,8 @@ func (s *client) refreshAccessToken() {
 // MakeRequest performs a HTTP request to the provided path and parameters
 func (s *client) MakeRequest(ctx context.Context, method, path string, queryParams map[string]string, body interface{}, authorised bool) (*http.Response, error) {
 	urlPath := fmt.Sprintf("%s%s", BaseURL, path)
-	var request *http.Request
 
+	var request *http.Request
 	switch method {
 	case http.MethodGet:
 		req, err := http.NewRequestWithContext(ctx, method, urlPath, nil)
@@ -188,6 +188,7 @@ func (s *client) MakeRequest(ctx context.Context, method, path string, queryPara
 			return nil, err
 		}
 		request = req
+
 	case http.MethodPost:
 		encoded, err := json.Marshal(body)
 		if err != nil {
@@ -202,6 +203,7 @@ func (s *client) MakeRequest(ctx context.Context, method, path string, queryPara
 		}
 
 		request = req
+
 	default:
 		return nil, fmt.Errorf("s.MakeRequest() unsupported http method: %s", method)
 

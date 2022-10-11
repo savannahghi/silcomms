@@ -7,6 +7,14 @@ type APIResponse struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+// ResultsResponse is the base response from a paginated list of results
+type ResultsResponse struct {
+	Count    int           `json:"count"`
+	Next     *string       `json:"next"`
+	Previous *string       `json:"previous"`
+	Results  []interface{} `json:"results"`
+}
+
 // TokenResponse is the data in the API response when logging in
 // The access token is used as the bearer token when making API requests
 // The refresh token is used to obtain a new access token when it expires

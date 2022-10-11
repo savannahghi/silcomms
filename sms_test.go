@@ -33,6 +33,39 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "sad case: invalid status code",
+			args: args{
+				ctx:     context.Background(),
+				message: "This is a test",
+				recipients: []string{
+					gofakeit.Phone(),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "sad case: invalid API response",
+			args: args{
+				ctx:     context.Background(),
+				message: "This is a test",
+				recipients: []string{
+					gofakeit.Phone(),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "sad case: invalid bulk SMS data response",
+			args: args{
+				ctx:     context.Background(),
+				message: "This is a test",
+				recipients: []string{
+					gofakeit.Phone(),
+				},
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -49,6 +82,37 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 						Message: "success",
 						Data: silcomms.BulkSMSResponse{
 							GUID: gofakeit.UUID(),
+						},
+					}
+					return httpmock.NewJsonResponse(http.StatusAccepted, resp)
+				})
+			}
+			if tt.name == "sad case: invalid status code" {
+				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/bulk/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
+					return httpmock.NewJsonResponse(http.StatusUnauthorized, nil)
+				})
+			}
+
+			if tt.name == "sad case: invalid API response" {
+				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/bulk/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
+					resp := map[string]interface{}{
+						"status":  1234,
+						"message": 1234,
+					}
+
+					return httpmock.NewJsonResponse(http.StatusAccepted, resp)
+				})
+			}
+
+			if tt.name == "sad case: invalid bulk SMS data response" {
+				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/bulk/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
+					resp := silcomms.APIResponse{
+						Status:  silcomms.StatusSuccess,
+						Message: "success",
+						Data: map[string]interface{}{
+							"guid":    123456,
+							"sender":  123456,
+							"message": 123456,
 						},
 					}
 					return httpmock.NewJsonResponse(http.StatusAccepted, resp)
