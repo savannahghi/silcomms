@@ -17,18 +17,33 @@ var (
 
 // CommsLib is the SDK implementation for interacting with the sil communications API
 type CommsLib struct {
-	client *client
+	client   *client
+	senderID string
 }
 
 // NewSILCommsLib initializes a new implementation of the SIL Comms SDK
-func NewSILCommsLib() *CommsLib {
-	client := newClient()
-
-	l := &CommsLib{
-		client: client,
+func NewSILCommsLib() (*CommsLib, error) {
+	client, err := newClient()
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize SIL Comms SMS SDK: %w", err)
 	}
 
-	return l
+	l := &CommsLib{
+		client:   client,
+		senderID: SenderID,
+	}
+
+	return l, nil
+}
+
+// MustNewSILCommsLib initializes a new implementation of the SIL Comms SDK
+func MustNewSILCommsLib() *CommsLib {
+	sdk, err := NewSILCommsLib()
+	if err != nil {
+		panic(err)
+	}
+
+	return sdk
 }
 
 // SendBulkSMS returns a 202 Accepted synchronous response while the API attempts to send the SMS in the background.
