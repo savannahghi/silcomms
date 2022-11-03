@@ -41,24 +41,40 @@ type client struct {
 
 	accessToken       string
 	accessTokenTicker *time.Ticker
+
+	authFailed bool
 }
 
 // newClient initializes a new SIL comms client instance
-func newClient() *client {
+func newClient() (*client, error) {
 	s := &client{
 		client: &http.Client{
 			Timeout: time.Second * 10,
 		},
 		accessToken:  "",
 		refreshToken: "",
+		authFailed:   false,
 	}
 
-	s.login()
+	err := s.login()
+	if err != nil {
+		return nil, err
+	}
 
 	// set up background routine to update tokens
 	go s.background()
 
-	return s
+	return s, nil
+}
+
+// mustNewClient initializes a new SIL comms client instance
+func mustNewClient() *client {
+	client, err := newClient()
+	if err != nil {
+		panic(err)
+	}
+
+	return client
 }
 
 // executed as a go routine to update the api tokens when they timeout
@@ -67,11 +83,17 @@ func (s *client) background() {
 		select {
 		case t := <-s.refreshTokenTicker.C:
 			logrus.Println("SIL Comms Refresh Token updated at: ", t)
-			s.login()
+			err := s.login()
+			if err != nil {
+				s.authFailed = true
+			}
 
 		case t := <-s.accessTokenTicker.C:
 			logrus.Println("SIL Comms Access Token updated at: ", t)
-			s.refreshAccessToken()
+			err := s.refreshAccessToken()
+			if err != nil {
+				s.authFailed = true
+			}
 
 		}
 	}
@@ -99,7 +121,7 @@ func (s *client) setRefreshToken(token string) {
 
 // login uses the provided credentials to login to the SIL communications backend
 // It obtains the necessary tokens required to make authenticated requests
-func (s *client) login() {
+func (s *client) login() error {
 	path := "/auth/token/"
 	payload := struct {
 		Email    string `json:"email"`
@@ -112,34 +134,36 @@ func (s *client) login() {
 	response, err := s.MakeRequest(context.Background(), http.MethodPost, path, nil, payload, false)
 	if err != nil {
 		err = fmt.Errorf("failed to make login request: %w", err)
-		panic(err)
+		return err
 	}
 
 	if response.StatusCode != http.StatusOK {
 		err := fmt.Errorf("invalid login response code, got: %d", response.StatusCode)
-		panic(err)
+		return err
 	}
 
 	var resp APIResponse
 	err = json.NewDecoder(response.Body).Decode(&resp)
 	if err != nil {
 		err = fmt.Errorf("failed to decode login api response: %w", err)
-		panic(err)
+		return err
 	}
 
 	var tokens TokenResponse
 	err = mapstructure.Decode(resp.Data, &tokens)
 	if err != nil {
 		err = fmt.Errorf("failed to decode login data in api response: %w", err)
-		panic(err)
+		return err
 	}
 
 	s.setRefreshToken(tokens.Refresh)
 	s.setAccessToken(tokens.Access)
 
+	return nil
+
 }
 
-func (s *client) refreshAccessToken() {
+func (s *client) refreshAccessToken() error {
 	path := "/auth/token/refresh/"
 	payload := struct {
 		Refresh string `json:"refresh"`
@@ -150,34 +174,41 @@ func (s *client) refreshAccessToken() {
 	response, err := s.MakeRequest(context.Background(), http.MethodPost, path, nil, payload, false)
 	if err != nil {
 		err = fmt.Errorf("failed to make refresh request: %w", err)
-		panic(err)
+		return err
 	}
 
 	if response.StatusCode != http.StatusOK {
 		err := fmt.Errorf("invalid refresh token response code, got: %d", response.StatusCode)
-		panic(err)
+		return err
 	}
 
 	var resp APIResponse
 	err = json.NewDecoder(response.Body).Decode(&resp)
 	if err != nil {
 		err = fmt.Errorf("failed to decode refresh token api response: %w", err)
-		panic(err)
+		return err
 	}
 
 	var tokens TokenResponse
 	err = mapstructure.Decode(resp.Data, &tokens)
 	if err != nil {
 		err = fmt.Errorf("failed to decode refresh token data in api response: %w", err)
-		panic(err)
+		return err
 	}
 
 	s.setAccessToken(tokens.Access)
+
+	return nil
 
 }
 
 // MakeRequest performs a HTTP request to the provided path and parameters
 func (s *client) MakeRequest(ctx context.Context, method, path string, queryParams map[string]string, body interface{}, authorised bool) (*http.Response, error) {
+	// background refresh failed and the tokens are not valid
+	if s.authFailed {
+		return nil, fmt.Errorf("invalid credentials, cannot make request please update")
+	}
+
 	urlPath := fmt.Sprintf("%s%s", BaseURL, path)
 
 	var request *http.Request

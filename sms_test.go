@@ -73,7 +73,7 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 			defer httpmock.DeactivateAndReset()
 			silcomms.MockLogin()
 
-			l := silcomms.NewSILCommsLib()
+			l := silcomms.MustNewSILCommsLib()
 
 			if tt.name == "happy case: send bulk sms" {
 				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/bulk/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
