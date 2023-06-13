@@ -46,3 +46,16 @@ type BulkSMSResponse struct {
 	Created    string   `json:"created"`
 	Updated    string   `json:"updated"`
 }
+
+// PremiumSMSResponse is the response returned after making a request to SILCOMMS to send a premium SMS
+type PremiumSMSResponse struct {
+	GUID         string `json:"guid"`
+	Body         string `json:"body"`
+	Msisdn       string `json:"msisdn"`
+	SMSType      string `json:"sms_type"`
+	Gateway      string `json:"gateway"`
+	Carrier      string `json:"carrier"`
+	Subscription string `json:"subscription"`
+	Direction    string `json:"direction"`
+	State        string `json:"state"`
+}
