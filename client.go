@@ -87,6 +87,7 @@ func (s *client) background() {
 			if err != nil {
 				s.authFailed = true
 			}
+			s.authFailed = false
 
 		case t := <-s.accessTokenTicker.C:
 			logrus.Println("SIL Comms Access Token updated at: ", t)
@@ -94,7 +95,7 @@ func (s *client) background() {
 			if err != nil {
 				s.authFailed = true
 			}
-
+			s.authFailed = false
 		}
 	}
 }
