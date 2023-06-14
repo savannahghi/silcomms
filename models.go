@@ -59,3 +59,18 @@ type PremiumSMSResponse struct {
 	Direction    string `json:"direction"`
 	State        string `json:"state"`
 }
+
+// Subscription represents the response that is returned when activating a subscription to an offer
+type Subscription struct {
+	GUID             string `json:"guid"`
+	Gateway          string `json:"gateway"`
+	Offer            string `json:"offer"`
+	Msisdn           string `json:"msisdn"`
+	LinkID           string `json:"link_id"`
+	ActivationDate   string `json:"activation_date"`
+	DeactivationDate any    `json:"deactivation_date"`
+	DeactivationType string `json:"deactivation_type"`
+	Sms              []any  `json:"sms"`
+	Created          string `json:"created"`
+	Updated          string `json:"updated"`
+}
