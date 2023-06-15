@@ -88,10 +88,10 @@ func (l CommsLib) SendBulkSMS(ctx context.Context, message string, recipients []
 	return &bulkSMS, nil
 }
 
-// SendPremiumSMS is used to send a premium SMS using SILCOMMS gateway
-// message - message to be sent via the premium SMS
-// msisdn - phone number to receive the premium SMS
-// subscription - subscription/offer associated with the premium SMS
+// SendPremiumSMS is used to send a premium SMS using SILCOMMS gateway.
+// message - message to be sent via the premium SMS.
+// msisdn - phone number to receive the premium SMS.
+// subscription - subscription/offer associated with the premium SMS.
 func (l CommsLib) SendPremiumSMS(ctx context.Context, message, msisdn, subscription string) (*PremiumSMSResponse, error) {
 	path := "/v1/sms/sms/"
 	payload := struct {
@@ -106,8 +106,9 @@ func (l CommsLib) SendPremiumSMS(ctx context.Context, message, msisdn, subscript
 
 	response, err := l.client.MakeRequest(ctx, http.MethodPost, path, nil, payload, true)
 	if err != nil {
-		return nil, fmt.Errorf("failed to make send premium sms request: %v", err)
+		return nil, fmt.Errorf("failed to make send premium sms request: %w", err)
 	}
+
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("invalid send premium sms response code, got: %d", response.StatusCode)
 	}
@@ -125,4 +126,64 @@ func (l CommsLib) SendPremiumSMS(ctx context.Context, message, msisdn, subscript
 	}
 
 	return &premiumSMS, nil
+}
+
+// ActivateSubscription is used activate a subscription to an offer on SILCOMMS.
+// msisdn - phone number to be to activate a subscription to an offer.
+// offer - offercode used to create a subscription.
+func (l CommsLib) ActivateSubscription(ctx context.Context, offer string, msisdn string) (bool, error) {
+	path := "/v1/sms/subscriptions/"
+	payload := struct {
+		Offer  string `json:"offer"`
+		Msisdn string `json:"msisdn"`
+	}{
+		Offer:  offer,
+		Msisdn: msisdn,
+	}
+
+	response, err := l.client.MakeRequest(ctx, http.MethodPost, path, nil, payload, true)
+	if err != nil {
+		return false, fmt.Errorf("failed to make activate subscription request: %w", err)
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return false, fmt.Errorf("invalid activate subscription response code, got: %d", response.StatusCode)
+	}
+
+	return true, nil
+}
+
+// GetSubscriptions fetches subscriptions from SILCOMMs based on provided query params
+// params - query params used to get a subscription to an offer.
+func (l CommsLib) GetSubscriptions(ctx context.Context, queryParams map[string]string) ([]*Subscription, error) {
+	path := "/v1/sms/subscriptions/"
+
+	response, err := l.client.MakeRequest(ctx, http.MethodGet, path, queryParams, nil, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make get subscriptions request: %w", err)
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("invalid get subscriptions response code, got: %d", response.StatusCode)
+	}
+
+	var resp APIResponse
+	err = json.NewDecoder(response.Body).Decode(&resp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode get subscriptions api response: %w", err)
+	}
+
+	var resultResponse ResultsResponse
+	err = mapstructure.Decode(resp.Data, &resultResponse)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode result response data in api response: %w", err)
+	}
+
+	var subscriptions []*Subscription
+	err = mapstructure.Decode(resultResponse.Results, &subscriptions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode subscriptions data in api response: %w", err)
+	}
+
+	return subscriptions, nil
 }
