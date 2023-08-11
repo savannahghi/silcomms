@@ -131,14 +131,17 @@ func (l CommsLib) SendPremiumSMS(ctx context.Context, message, msisdn, subscript
 // ActivateSubscription is used activate a subscription to an offer on SILCOMMS.
 // msisdn - phone number to be to activate a subscription to an offer.
 // offer - offercode used to create a subscription.
-func (l CommsLib) ActivateSubscription(ctx context.Context, offer string, msisdn string) (bool, error) {
+// activate - boolean value to determine whether activation should happen on SDP
+func (l CommsLib) ActivateSubscription(ctx context.Context, offer string, msisdn string, activate bool) (bool, error) {
 	path := "/v1/sms/subscriptions/"
 	payload := struct {
 		Offer  string `json:"offer"`
 		Msisdn string `json:"msisdn"`
+		Activate bool `json:"activate"`
 	}{
 		Offer:  offer,
 		Msisdn: msisdn,
+		Activate: activate,
 	}
 
 	response, err := l.client.MakeRequest(ctx, http.MethodPost, path, nil, payload, true)
