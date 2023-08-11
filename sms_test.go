@@ -257,6 +257,7 @@ func TestSILCommsLib_ActivateSubscription(t *testing.T) {
 		ctx    context.Context
 		offer  string
 		msisdn string
+		activate bool
 	}
 	tests := []struct {
 		name    string
@@ -269,6 +270,16 @@ func TestSILCommsLib_ActivateSubscription(t *testing.T) {
 				ctx:    ctx,
 				offer:  "01262626626",
 				msisdn: gofakeit.Phone(),
+			},
+			wantErr: false,
+		},
+		{
+			name: "Happy case: activate subscription bypass sdp",
+			args: args{
+				ctx:    ctx,
+				offer:  "01262626626",
+				msisdn: gofakeit.Phone(),
+				activate: false,
 			},
 			wantErr: false,
 		},
@@ -305,13 +316,28 @@ func TestSILCommsLib_ActivateSubscription(t *testing.T) {
 				})
 			}
 
+			if tt.name == "Happy case: activate subscription bypass sdp" {
+				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/subscriptions/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
+					resp := silcomms.APIResponse{
+						Status:  silcomms.StatusSuccess,
+						Message: "success",
+						Data: map[string]interface{}{
+							"guid":   "123456",
+							"offer":  "123456",
+							"msisdn": "123456",
+						},
+					}
+					return httpmock.NewJsonResponse(http.StatusOK, resp)
+				})
+			}
+
 			if tt.name == "Sad case: invalid status code" {
 				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/subscriptions/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
 					return httpmock.NewJsonResponse(http.StatusUnauthorized, nil)
 				})
 			}
 
-			got, err := l.ActivateSubscription(tt.args.ctx, tt.args.offer, tt.args.msisdn)
+			got, err := l.ActivateSubscription(tt.args.ctx, tt.args.offer, tt.args.msisdn, tt.args.activate)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SILCommsLib.ActivateSubscription() error = %v, wantErr %v", err, tt.wantErr)
 				return
