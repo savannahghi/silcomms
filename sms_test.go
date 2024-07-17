@@ -254,9 +254,9 @@ func TestSILCommsLib_SendPremiumSMS(t *testing.T) {
 func TestSILCommsLib_ActivateSubscription(t *testing.T) {
 	ctx := context.Background()
 	type args struct {
-		ctx    context.Context
-		offer  string
-		msisdn string
+		ctx      context.Context
+		offer    string
+		msisdn   string
 		activate bool
 	}
 	tests := []struct {
@@ -276,9 +276,9 @@ func TestSILCommsLib_ActivateSubscription(t *testing.T) {
 		{
 			name: "Happy case: activate subscription bypass sdp",
 			args: args{
-				ctx:    ctx,
-				offer:  "01262626626",
-				msisdn: gofakeit.Phone(),
+				ctx:      ctx,
+				offer:    "01262626626",
+				msisdn:   gofakeit.Phone(),
 				activate: false,
 			},
 			wantErr: false,

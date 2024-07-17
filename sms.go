@@ -21,6 +21,13 @@ type CommsLib struct {
 	senderID string
 }
 
+// APIErrorResponse is the representation of an error response
+type APIErrorResponse struct {
+	Status  string                 `json:"status"`
+	Message string                 `json:"message"`
+	Data    map[string]interface{} `json:"data"`
+}
+
 // NewSILCommsLib initializes a new implementation of the SIL Comms SDK
 func NewSILCommsLib() (*CommsLib, error) {
 	client, err := newClient()
@@ -69,7 +76,12 @@ func (l CommsLib) SendBulkSMS(ctx context.Context, message string, recipients []
 	}
 
 	if response.StatusCode != http.StatusAccepted {
-		err := fmt.Errorf("invalid send bulk sms response code, got: %d", response.StatusCode)
+		var apiErr APIErrorResponse
+		if err := json.NewDecoder(response.Body).Decode(&apiErr); err != nil {
+			return nil, fmt.Errorf("invalid send premium sms response code, got: %d", response.StatusCode)
+		}
+
+		err := fmt.Errorf("invalid send bulk sms response code, got: %d, error detail: %s", response.StatusCode, apiErr.Data)
 		return nil, err
 	}
 
@@ -110,7 +122,12 @@ func (l CommsLib) SendPremiumSMS(ctx context.Context, message, msisdn, subscript
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("invalid send premium sms response code, got: %d", response.StatusCode)
+		var apiErr APIErrorResponse
+		if err := json.NewDecoder(response.Body).Decode(&apiErr); err != nil {
+			return nil, fmt.Errorf("invalid send premium sms response code, got: %d", response.StatusCode)
+		}
+
+		return nil, fmt.Errorf("invalid send premium sms response code, got: %d, error detail: %s", response.StatusCode, apiErr.Data)
 	}
 
 	var resp APIResponse
@@ -135,12 +152,12 @@ func (l CommsLib) SendPremiumSMS(ctx context.Context, message, msisdn, subscript
 func (l CommsLib) ActivateSubscription(ctx context.Context, offer string, msisdn string, activate bool) (bool, error) {
 	path := "/v1/sms/subscriptions/"
 	payload := struct {
-		Offer  string `json:"offer"`
-		Msisdn string `json:"msisdn"`
-		Activate bool `json:"activate"`
+		Offer    string `json:"offer"`
+		Msisdn   string `json:"msisdn"`
+		Activate bool   `json:"activate"`
 	}{
-		Offer:  offer,
-		Msisdn: msisdn,
+		Offer:    offer,
+		Msisdn:   msisdn,
 		Activate: activate,
 	}
 
@@ -150,7 +167,12 @@ func (l CommsLib) ActivateSubscription(ctx context.Context, offer string, msisdn
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return false, fmt.Errorf("invalid activate subscription response code, got: %d", response.StatusCode)
+		var apiErr APIErrorResponse
+		if err := json.NewDecoder(response.Body).Decode(&apiErr); err != nil {
+			return false, fmt.Errorf("invalid send premium sms response code, got: %d", response.StatusCode)
+		}
+
+		return false, fmt.Errorf("invalid activate subscription response code, got: %d, error detail: %s", response.StatusCode, apiErr.Data)
 	}
 
 	return true, nil
