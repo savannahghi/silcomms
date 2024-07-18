@@ -13,40 +13,39 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        go-version: [1.18.x]
+        go-version: [1.21.x]
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v3.1.0
+      - uses: actions/checkout@v4.1.7
       - name: Install Go
-        uses: actions/setup-go@v3.3.1
+        uses: actions/setup-go@v5.0.1
         with:
           go-version: ${{ matrix.go-version }}
 
+      - name: Run lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+
       - name: Install Go dependencies
         run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.37.1
-          curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.13.1
-          go install honnef.co/go/tools/cmd/staticcheck@2022.1
+          go mod download
+          go get github.com/axw/gocov/gocov@latest
+          go get github.com/ory/go-acc@latest
           go install github.com/ory/go-acc@latest
           go install github.com/axw/gocov/gocov@latest
-          go install github.com/kisielk/errcheck@latest
 
-      - name: Run lint and test
+      - name: Run test
         run: |
-          staticcheck ./...
-          go fmt $(go list ./... | grep -v /vendor/)
-          go vet $(go list ./... | grep -v /vendor/)
-          errcheck -ignore 'os:.*,' $(go list ./... | grep -v /vendor/)
-          gosec -exclude=G304,G101 ./...
           go-acc -o coverage.txt --ignore generated,cmd  ./... -- -timeout 60m
           grep -v "generated.go" coverage.txt > coverage.out
           go tool cover -html=coverage.out -o coverage.html
           gocov convert coverage.out > coverage.json
           gocov report coverage.json > coverage_report.txt
           tail coverage_report.txt
-        
+
       - name: Install goveralls
         env:
           GO111MODULE: off
