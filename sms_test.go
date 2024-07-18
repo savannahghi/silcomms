@@ -8,8 +8,45 @@ import (
 
 	"github.com/brianvoe/gofakeit"
 	"github.com/jarcoal/httpmock"
+	"github.com/savannahghi/authutils"
 	"github.com/savannahghi/silcomms"
 )
+
+// AuthServerServiceMock mocks onboarding implementations
+type AuthServerServiceMock struct {
+	MockLoginUserFn    func(ctx context.Context, input *authutils.LoginUserPayload) (*authutils.OAUTHResponse, error)
+	MockRefreshTokenFn func(ctx context.Context, refreshToken string) (*authutils.OAUTHResponse, error)
+}
+
+// NewAuthServerServiceMock initializes our client mocks
+func NewAuthServerServiceMock() *AuthServerServiceMock {
+	return &AuthServerServiceMock{
+		MockLoginUserFn: func(ctx context.Context, input *authutils.LoginUserPayload) (*authutils.OAUTHResponse, error) { //nolint: revive
+			return &authutils.OAUTHResponse{
+				AccessToken:  "access",
+				RefreshToken: "refresh",
+			}, nil
+		},
+		MockRefreshTokenFn: func(ctx context.Context, refreshToken string) (*authutils.OAUTHResponse, error) { //nolint:revive
+			return &authutils.OAUTHResponse{
+				AccessToken:  "access",
+				RefreshToken: "refresh",
+			}, nil
+		},
+	}
+}
+
+// LoginUser mocks the implementation of proxying login requests for users to authserver
+func (oc AuthServerServiceMock) LoginUser(ctx context.Context, input *authutils.LoginUserPayload) (*authutils.OAUTHResponse, error) {
+	return oc.MockLoginUserFn(ctx, input)
+}
+
+// MockRefreshToken mocks the implementation of getting refresh tokens
+func (oc AuthServerServiceMock) RefreshToken(ctx context.Context, refreshToken string) (*authutils.OAUTHResponse, error) {
+	return oc.MockRefreshTokenFn(ctx, refreshToken)
+}
+
+var authServer = NewAuthServerServiceMock()
 
 func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 	type args struct {
@@ -71,12 +108,11 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			httpmock.Activate()
 			defer httpmock.DeactivateAndReset()
-			silcomms.MockLogin()
 
-			l := silcomms.MustNewSILCommsLib()
+			l := silcomms.MustNewSILCommsLib(authServer)
 
 			if tt.name == "happy case: send bulk sms" {
-				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/bulk/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
+				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/bulk/", silcomms.BaseURL), func(_ *http.Request) (*http.Response, error) {
 					resp := silcomms.APIResponse{
 						Status:  silcomms.StatusSuccess,
 						Message: "success",
@@ -88,13 +124,13 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 				})
 			}
 			if tt.name == "sad case: invalid status code" {
-				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/bulk/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
+				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/bulk/", silcomms.BaseURL), func(_ *http.Request) (*http.Response, error) {
 					return httpmock.NewJsonResponse(http.StatusUnauthorized, nil)
 				})
 			}
 
 			if tt.name == "sad case: invalid API response" {
-				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/bulk/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
+				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/bulk/", silcomms.BaseURL), func(_ *http.Request) (*http.Response, error) {
 					resp := map[string]interface{}{
 						"status":  1234,
 						"message": 1234,
@@ -105,7 +141,7 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 			}
 
 			if tt.name == "sad case: invalid bulk SMS data response" {
-				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/bulk/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
+				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/bulk/", silcomms.BaseURL), func(_ *http.Request) (*http.Response, error) {
 					resp := silcomms.APIResponse{
 						Status:  silcomms.StatusSuccess,
 						Message: "success",
@@ -189,12 +225,11 @@ func TestSILCommsLib_SendPremiumSMS(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			httpmock.Activate()
 			defer httpmock.DeactivateAndReset()
-			silcomms.MockLogin()
 
-			l := silcomms.MustNewSILCommsLib()
+			l := silcomms.MustNewSILCommsLib(authServer)
 
 			if tt.name == "Happy case: send premium sms" {
-				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/sms/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
+				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/sms/", silcomms.BaseURL), func(_ *http.Request) (*http.Response, error) {
 					resp := silcomms.APIResponse{
 						Status:  silcomms.StatusSuccess,
 						Message: "success",
@@ -206,14 +241,14 @@ func TestSILCommsLib_SendPremiumSMS(t *testing.T) {
 				})
 			}
 
-			if tt.name == "Sad case: invalid status code" {
-				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/sms/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
+			if tt.name == "Sad case: invalid status code" { //nolint: goconst
+				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/sms/", silcomms.BaseURL), func(_ *http.Request) (*http.Response, error) {
 					return httpmock.NewJsonResponse(http.StatusUnauthorized, nil)
 				})
 			}
 
 			if tt.name == "Sad case: invalid API response" {
-				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/sms/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
+				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/sms/", silcomms.BaseURL), func(_ *http.Request) (*http.Response, error) {
 					resp := map[string]interface{}{
 						"status":  1234,
 						"message": 1234,
@@ -224,7 +259,7 @@ func TestSILCommsLib_SendPremiumSMS(t *testing.T) {
 			}
 
 			if tt.name == "Sad case: invalid premium SMS data response" {
-				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/sms/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
+				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/sms/", silcomms.BaseURL), func(_ *http.Request) (*http.Response, error) {
 					resp := silcomms.APIResponse{
 						Status:  silcomms.StatusSuccess,
 						Message: "success",
@@ -297,12 +332,11 @@ func TestSILCommsLib_ActivateSubscription(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			httpmock.Activate()
 			defer httpmock.DeactivateAndReset()
-			silcomms.MockLogin()
 
-			l := silcomms.MustNewSILCommsLib()
+			l := silcomms.MustNewSILCommsLib(authServer)
 
 			if tt.name == "Happy case: activate subscription" {
-				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/subscriptions/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
+				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/subscriptions/", silcomms.BaseURL), func(_ *http.Request) (*http.Response, error) {
 					resp := silcomms.APIResponse{
 						Status:  silcomms.StatusSuccess,
 						Message: "success",
@@ -317,7 +351,7 @@ func TestSILCommsLib_ActivateSubscription(t *testing.T) {
 			}
 
 			if tt.name == "Happy case: activate subscription bypass sdp" {
-				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/subscriptions/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
+				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/subscriptions/", silcomms.BaseURL), func(_ *http.Request) (*http.Response, error) {
 					resp := silcomms.APIResponse{
 						Status:  silcomms.StatusSuccess,
 						Message: "success",
@@ -332,7 +366,7 @@ func TestSILCommsLib_ActivateSubscription(t *testing.T) {
 			}
 
 			if tt.name == "Sad case: invalid status code" {
-				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/subscriptions/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
+				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/subscriptions/", silcomms.BaseURL), func(_ *http.Request) (*http.Response, error) {
 					return httpmock.NewJsonResponse(http.StatusUnauthorized, nil)
 				})
 			}
@@ -388,12 +422,11 @@ func TestSILCommsLib_GetSubscriptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			httpmock.Activate()
 			defer httpmock.DeactivateAndReset()
-			silcomms.MockLogin()
 
-			l := silcomms.MustNewSILCommsLib()
+			l := silcomms.MustNewSILCommsLib(authServer)
 
 			if tt.name == "Happy case: get subscription" {
-				httpmock.RegisterResponder(http.MethodGet, fmt.Sprintf("%s/v1/sms/subscriptions/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
+				httpmock.RegisterResponder(http.MethodGet, fmt.Sprintf("%s/v1/sms/subscriptions/", silcomms.BaseURL), func(_ *http.Request) (*http.Response, error) {
 					resp := silcomms.APIResponse{
 						Status:  silcomms.StatusSuccess,
 						Message: "success",
@@ -423,7 +456,7 @@ func TestSILCommsLib_GetSubscriptions(t *testing.T) {
 			}
 
 			if tt.name == "Sad case: invalid status code" {
-				httpmock.RegisterResponder(http.MethodGet, fmt.Sprintf("%s/v1/sms/subscriptions/", silcomms.BaseURL), func(r *http.Request) (*http.Response, error) {
+				httpmock.RegisterResponder(http.MethodGet, fmt.Sprintf("%s/v1/sms/subscriptions/", silcomms.BaseURL), func(_ *http.Request) (*http.Response, error) {
 					return httpmock.NewJsonResponse(http.StatusUnauthorized, nil)
 				})
 			}
