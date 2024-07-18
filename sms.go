@@ -29,8 +29,8 @@ type APIErrorResponse struct {
 }
 
 // NewSILCommsLib initializes a new implementation of the SIL Comms SDK
-func NewSILCommsLib() (*CommsLib, error) {
-	client, err := newClient()
+func NewSILCommsLib(authServer AuthServerImpl) (*CommsLib, error) {
+	client, err := newClient(authServer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize SIL Comms SMS SDK: %w", err)
 	}
@@ -44,10 +44,12 @@ func NewSILCommsLib() (*CommsLib, error) {
 }
 
 // MustNewSILCommsLib initializes a new implementation of the SIL Comms SDK
-func MustNewSILCommsLib() *CommsLib {
-	sdk, err := NewSILCommsLib()
-	if err != nil {
-		panic(err)
+func MustNewSILCommsLib(authServer AuthServerImpl) *CommsLib {
+	client := mustNewClient(authServer)
+
+	sdk := &CommsLib{
+		client:   client,
+		senderID: SenderID,
 	}
 
 	return sdk
@@ -74,6 +76,8 @@ func (l CommsLib) SendBulkSMS(ctx context.Context, message string, recipients []
 	if err != nil {
 		return nil, fmt.Errorf("failed to make send bulk sms request: %w", err)
 	}
+
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusAccepted {
 		var apiErr APIErrorResponse
@@ -121,6 +125,8 @@ func (l CommsLib) SendPremiumSMS(ctx context.Context, message, msisdn, subscript
 		return nil, fmt.Errorf("failed to make send premium sms request: %w", err)
 	}
 
+	defer response.Body.Close()
+
 	if response.StatusCode != http.StatusOK {
 		var apiErr APIErrorResponse
 		if err := json.NewDecoder(response.Body).Decode(&apiErr); err != nil {
@@ -166,6 +172,8 @@ func (l CommsLib) ActivateSubscription(ctx context.Context, offer string, msisdn
 		return false, fmt.Errorf("failed to make activate subscription request: %w", err)
 	}
 
+	defer response.Body.Close()
+
 	if response.StatusCode != http.StatusOK {
 		var apiErr APIErrorResponse
 		if err := json.NewDecoder(response.Body).Decode(&apiErr); err != nil {
@@ -187,6 +195,8 @@ func (l CommsLib) GetSubscriptions(ctx context.Context, queryParams map[string]s
 	if err != nil {
 		return nil, fmt.Errorf("failed to make get subscriptions request: %w", err)
 	}
+
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("invalid get subscriptions response code, got: %d", response.StatusCode)

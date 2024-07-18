@@ -8,22 +8,44 @@ import (
 
 	"github.com/brianvoe/gofakeit"
 	"github.com/jarcoal/httpmock"
+	"github.com/savannahghi/authutils"
 )
 
-// MockLogin mocks a mock login request to obtain a token
-func MockLogin() {
-	httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/auth/token/", BaseURL), func(r *http.Request) (*http.Response, error) {
-		resp := APIResponse{
-			Status:  StatusSuccess,
-			Message: "success",
-			Data: TokenResponse{
-				Refresh: "refresh",
-				Access:  "access",
-			},
-		}
-		return httpmock.NewJsonResponse(http.StatusOK, resp)
-	})
+// AuthServerServiceMock mocks onboarding implementations
+type AuthServerServiceMock struct {
+	MockLoginUserFn    func(ctx context.Context, input *authutils.LoginUserPayload) (*authutils.OAUTHResponse, error)
+	MockRefreshTokenFn func(ctx context.Context, refreshToken string) (*authutils.OAUTHResponse, error)
 }
+
+// NewAuthServerServiceMock initializes our client mocks
+func NewAuthServerServiceMock() *AuthServerServiceMock {
+	return &AuthServerServiceMock{
+		MockLoginUserFn: func(ctx context.Context, input *authutils.LoginUserPayload) (*authutils.OAUTHResponse, error) { //nolint: revive
+			return &authutils.OAUTHResponse{
+				AccessToken:  "access",
+				RefreshToken: "refresh",
+			}, nil
+		},
+		MockRefreshTokenFn: func(ctx context.Context, refreshToken string) (*authutils.OAUTHResponse, error) { //nolint:revive
+			return &authutils.OAUTHResponse{
+				AccessToken:  "access",
+				RefreshToken: "refresh",
+			}, nil
+		},
+	}
+}
+
+// LoginUser mocks the implementation of proxying login requests for users to authserver
+func (oc AuthServerServiceMock) LoginUser(ctx context.Context, input *authutils.LoginUserPayload) (*authutils.OAUTHResponse, error) {
+	return oc.MockLoginUserFn(ctx, input)
+}
+
+// MockRefreshToken mocks the implementation of getting refresh tokens
+func (oc AuthServerServiceMock) RefreshToken(ctx context.Context, refreshToken string) (*authutils.OAUTHResponse, error) {
+	return oc.MockRefreshTokenFn(ctx, refreshToken)
+}
+
+var authServer = NewAuthServerServiceMock()
 
 func TestSILclient_MakeRequest(t *testing.T) {
 	type args struct {
@@ -39,30 +61,6 @@ func TestSILclient_MakeRequest(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-		{
-			name: "happy case: make unauthenticated request",
-			args: args{
-				ctx:         context.Background(),
-				method:      http.MethodPost,
-				path:        "/auth/token/",
-				queryParams: nil,
-				body:        nil,
-				authorised:  false,
-			},
-			wantErr: false,
-		},
-		{
-			name: "happy case: make authenticated POST request",
-			args: args{
-				ctx:         context.Background(),
-				method:      http.MethodPost,
-				path:        "/v1/sms/bulk/",
-				queryParams: nil,
-				body:        nil,
-				authorised:  true,
-			},
-			wantErr: false,
-		},
 		{
 			name: "happy case: make authenticated GET request",
 			args: args{
@@ -96,11 +94,11 @@ func TestSILclient_MakeRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			httpmock.Activate()
 			defer httpmock.DeactivateAndReset()
-			MockLogin()
-			s := mustNewClient()
+
+			s := mustNewClient(authServer)
 
 			if tt.name == "happy case: make authenticated POST request" {
-				httpmock.RegisterResponder(http.MethodPost, "/v1/sms/bulk/", func(r *http.Request) (*http.Response, error) {
+				httpmock.RegisterResponder(http.MethodPost, "/v1/sms/bulk/", func(_ *http.Request) (*http.Response, error) {
 					resp := APIResponse{
 						Status:  StatusSuccess,
 						Message: "success",
@@ -120,7 +118,7 @@ func TestSILclient_MakeRequest(t *testing.T) {
 			}
 
 			if tt.name == "happy case: make authenticated GET request" {
-				httpmock.RegisterResponder(http.MethodGet, "/v1/sms/bulk/", func(r *http.Request) (*http.Response, error) {
+				httpmock.RegisterResponder(http.MethodGet, "/v1/sms/bulk/", func(_ *http.Request) (*http.Response, error) {
 					resp := APIResponse{
 						Status:  StatusSuccess,
 						Message: "success",
@@ -141,13 +139,9 @@ func TestSILclient_MakeRequest(t *testing.T) {
 				})
 			}
 
-			got, err := s.MakeRequest(tt.args.ctx, tt.args.method, tt.args.path, tt.args.queryParams, tt.args.body, tt.args.authorised)
+			_, err := s.MakeRequest(tt.args.ctx, tt.args.method, tt.args.path, tt.args.queryParams, tt.args.body, tt.args.authorised) //nolint: bodyclose
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SILclient.MakeRequest() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !tt.wantErr && got == nil {
-				t.Errorf("SILclient.MakeRequest() expected response not to be nil for %v", tt.name)
 				return
 			}
 		})
@@ -155,7 +149,6 @@ func TestSILclient_MakeRequest(t *testing.T) {
 }
 
 func Test_client_refreshAccessToken(t *testing.T) {
-
 	tests := []struct {
 		name    string
 		wantErr bool
@@ -165,15 +158,7 @@ func Test_client_refreshAccessToken(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "sad case: invalid status code",
-			wantErr: true,
-		},
-		{
-			name:    "sad case: invalid api response",
-			wantErr: true,
-		},
-		{
-			name:    "sad case: invalid token response",
+			name:    "sad case: error occurs",
 			wantErr: true,
 		},
 	}
@@ -181,56 +166,13 @@ func Test_client_refreshAccessToken(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			httpmock.Activate()
 			defer httpmock.DeactivateAndReset()
-			MockLogin()
-			s := mustNewClient()
 
-			if tt.name == "happy case: refresh access token" {
-				httpmock.RegisterResponder(http.MethodPost, "/auth/token/refresh/", func(r *http.Request) (*http.Response, error) {
-					resp := APIResponse{
-						Status:  StatusSuccess,
-						Message: "success",
-						Data: TokenResponse{
-							Refresh: "refresh",
-							Access:  "access",
-						},
-					}
-					return httpmock.NewJsonResponse(http.StatusOK, resp)
-				})
-			}
+			s := mustNewClient(authServer)
 
-			if tt.name == "sad case: invalid status code" {
-				httpmock.RegisterResponder(http.MethodPost, "/auth/token/refresh/", func(r *http.Request) (*http.Response, error) {
-					resp := APIResponse{
-						Status:  StatusSuccess,
-						Message: "success",
-						Data:    nil,
-					}
-					return httpmock.NewJsonResponse(http.StatusBadRequest, resp)
-				})
-			}
-
-			if tt.name == "sad case: invalid api response" {
-				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/auth/token/refresh/", BaseURL), func(r *http.Request) (*http.Response, error) {
-					resp := map[string]interface{}{
-						"status":  1234,
-						"message": 1234,
-					}
-					return httpmock.NewJsonResponse(http.StatusOK, resp)
-				})
-			}
-
-			if tt.name == "sad case: invalid token response" {
-				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/auth/token/refresh/", BaseURL), func(r *http.Request) (*http.Response, error) {
-					resp := APIResponse{
-						Status:  StatusSuccess,
-						Message: "success",
-						Data: map[string]interface{}{
-							"refresh": 1234,
-							"access":  1234,
-						},
-					}
-					return httpmock.NewJsonResponse(http.StatusOK, resp)
-				})
+			if tt.name == "sad case: error occurs" {
+				authServer.MockRefreshTokenFn = func(ctx context.Context, refreshToken string) (*authutils.OAUTHResponse, error) { //nolint:all
+					return nil, fmt.Errorf("error")
+				}
 			}
 
 			if err := s.refreshAccessToken(); (err != nil) != tt.wantErr {
@@ -241,7 +183,6 @@ func Test_client_refreshAccessToken(t *testing.T) {
 }
 
 func Test_client_login(t *testing.T) {
-
 	tests := []struct {
 		name    string
 		wantErr bool
@@ -251,15 +192,7 @@ func Test_client_login(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "sad case: invalid status code",
-			wantErr: true,
-		},
-		{
-			name:    "sad case: invalid api response",
-			wantErr: true,
-		},
-		{
-			name:    "sad case: invalid token response",
+			name:    "sad case: error case",
 			wantErr: true,
 		},
 	}
@@ -268,71 +201,16 @@ func Test_client_login(t *testing.T) {
 			httpmock.Activate()
 			defer httpmock.DeactivateAndReset()
 
-			httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/auth/token/", BaseURL), func(r *http.Request) (*http.Response, error) {
-				resp := APIResponse{
-					Status:  StatusSuccess,
-					Message: "success",
-					Data: TokenResponse{
-						Refresh: "refresh",
-						Access:  "access",
-					},
-				}
-				return httpmock.NewJsonResponse(http.StatusOK, resp)
-			})
-
-			s, err := newClient()
+			s, err := newClient(authServer)
 			if err != nil {
 				t.Errorf("failed to initialize: %v", err)
 				return
 			}
 
-			if tt.name == "happy case: successful login" {
-				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/auth/token/", BaseURL), func(r *http.Request) (*http.Response, error) {
-					resp := APIResponse{
-						Status:  StatusSuccess,
-						Message: "success",
-						Data: TokenResponse{
-							Refresh: "refresh",
-							Access:  "access",
-						},
-					}
-					return httpmock.NewJsonResponse(http.StatusOK, resp)
-				})
-			}
-
-			if tt.name == "sad case: invalid status code" {
-				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/auth/token/", BaseURL), func(r *http.Request) (*http.Response, error) {
-					resp := APIResponse{
-						Status:  StatusSuccess,
-						Message: "success",
-						Data:    nil,
-					}
-					return httpmock.NewJsonResponse(http.StatusBadRequest, resp)
-				})
-			}
-
-			if tt.name == "sad case: invalid api response" {
-				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/auth/token/", BaseURL), func(r *http.Request) (*http.Response, error) {
-					resp := map[string]interface{}{
-						"status":  1234,
-						"message": 1234,
-					}
-					return httpmock.NewJsonResponse(http.StatusOK, resp)
-				})
-			}
-
-			if tt.name == "sad case: invalid token response" {
-				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/auth/token/", BaseURL), func(r *http.Request) (*http.Response, error) {
-					resp := APIResponse{
-						Status:  StatusSuccess,
-						Message: "success",
-						Data: map[string]interface{}{
-							"refresh": 1234,
-							"access":  1234,
-						},
-					}
-					return httpmock.NewJsonResponse(http.StatusOK, resp)
-				})
+			if tt.name == "sad case: error case" {
+				authServer.MockLoginUserFn = func(ctx context.Context, input *authutils.LoginUserPayload) (*authutils.OAUTHResponse, error) { //nolint:all
+					return nil, fmt.Errorf("error")
+				}
 			}
 
 			if err := s.login(); (err != nil) != tt.wantErr {

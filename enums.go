@@ -15,7 +15,7 @@ const (
 // IsValid returns true if a status is valid
 func (s Status) IsValid() bool {
 	switch s {
-	case "":
+	case StatusSuccess, StatusError, StatusFailure:
 		return true
 	}
 	return false

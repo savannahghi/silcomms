@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/mitchellh/mapstructure"
+	"github.com/savannahghi/authutils"
 	"github.com/savannahghi/serverutils"
 	"github.com/sirupsen/logrus"
 )
@@ -26,15 +26,23 @@ var (
 
 	// accessTokenTimeout shows the access token expiry time.
 	// After the access token expires, one is required to obtain a new one
-	accessTokenTimeout = 30 * time.Minute
+	accessTokenTimeout = 60 * time.Minute
 
 	// refreshTokenTimeout shows the refresh token expiry time
 	refreshTokenTimeout = 24 * time.Hour
 )
 
+// AuthServerImpl defines the methods provided by
+// the auth server library
+type AuthServerImpl interface {
+	LoginUser(ctx context.Context, input *authutils.LoginUserPayload) (*authutils.OAUTHResponse, error)
+	RefreshToken(ctx context.Context, refreshToken string) (*authutils.OAUTHResponse, error)
+}
+
 // It is the client used to make API request to sil communications API
 type client struct {
-	client *http.Client
+	authServer AuthServerImpl
+	client     *http.Client
 
 	refreshToken       string
 	refreshTokenTicker *time.Ticker
@@ -46,11 +54,12 @@ type client struct {
 }
 
 // newClient initializes a new SIL comms client instance
-func newClient() (*client, error) {
+func newClient(authServer AuthServerImpl) (*client, error) {
 	s := &client{
 		client: &http.Client{
 			Timeout: time.Second * 10,
 		},
+		authServer:   authServer,
 		accessToken:  "",
 		refreshToken: "",
 		authFailed:   false,
@@ -68,8 +77,8 @@ func newClient() (*client, error) {
 }
 
 // mustNewClient initializes a new SIL comms client instance
-func mustNewClient() *client {
-	client, err := newClient()
+func mustNewClient(authServer AuthServerImpl) *client {
+	client, err := newClient(authServer)
 	if err != nil {
 		panic(err)
 	}
@@ -120,87 +129,46 @@ func (s *client) setRefreshToken(token string) {
 	}
 }
 
-// login uses the provided credentials to login to the SIL communications backend
+// login uses the provided credentials to login to the authserver backend
 // It obtains the necessary tokens required to make authenticated requests
 func (s *client) login() error {
-	path := "/auth/token/"
-	payload := struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}{
+	ctx := context.Background()
+
+	loginInput := authutils.LoginUserPayload{
 		Email:    email,
 		Password: password,
 	}
 
-	response, err := s.MakeRequest(context.Background(), http.MethodPost, path, nil, payload, false)
+	resp, err := s.authServer.LoginUser(ctx, &loginInput)
 	if err != nil {
-		err = fmt.Errorf("failed to make login request: %w", err)
 		return err
 	}
 
-	if response.StatusCode != http.StatusOK {
-		err := fmt.Errorf("invalid login response code, got: %d", response.StatusCode)
-		return err
-	}
-
-	var resp APIResponse
-	err = json.NewDecoder(response.Body).Decode(&resp)
-	if err != nil {
-		err = fmt.Errorf("failed to decode login api response: %w", err)
-		return err
-	}
-
-	var tokens TokenResponse
-	err = mapstructure.Decode(resp.Data, &tokens)
-	if err != nil {
-		err = fmt.Errorf("failed to decode login data in api response: %w", err)
-		return err
+	tokens := TokenResponse{
+		Access:  resp.AccessToken,
+		Refresh: resp.RefreshToken,
 	}
 
 	s.setRefreshToken(tokens.Refresh)
 	s.setAccessToken(tokens.Access)
 
 	return nil
-
 }
 
 func (s *client) refreshAccessToken() error {
-	path := "/auth/token/refresh/"
-	payload := struct {
-		Refresh string `json:"refresh"`
-	}{
-		Refresh: s.refreshToken,
-	}
-
-	response, err := s.MakeRequest(context.Background(), http.MethodPost, path, nil, payload, false)
+	ctx := context.Background()
+	resp, err := s.authServer.RefreshToken(ctx, s.refreshToken)
 	if err != nil {
-		err = fmt.Errorf("failed to make refresh request: %w", err)
 		return err
 	}
 
-	if response.StatusCode != http.StatusOK {
-		err := fmt.Errorf("invalid refresh token response code, got: %d", response.StatusCode)
-		return err
-	}
-
-	var resp APIResponse
-	err = json.NewDecoder(response.Body).Decode(&resp)
-	if err != nil {
-		err = fmt.Errorf("failed to decode refresh token api response: %w", err)
-		return err
-	}
-
-	var tokens TokenResponse
-	err = mapstructure.Decode(resp.Data, &tokens)
-	if err != nil {
-		err = fmt.Errorf("failed to decode refresh token data in api response: %w", err)
-		return err
+	tokens := TokenResponse{
+		Access: resp.AccessToken,
 	}
 
 	s.setAccessToken(tokens.Access)
 
 	return nil
-
 }
 
 // MakeRequest performs a HTTP request to the provided path and parameters
@@ -238,7 +206,6 @@ func (s *client) MakeRequest(ctx context.Context, method, path string, queryPara
 
 	default:
 		return nil, fmt.Errorf("s.MakeRequest() unsupported http method: %s", method)
-
 	}
 
 	request.Header.Set("Accept", "application/json")

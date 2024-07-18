@@ -1,44 +1,42 @@
 # Options for analysis running.
 run:
-  skip-dirs:
-    - pkg/mycarehub/presentation/graph/
-  linters:
-    disable-all: true
-    enable:
-      - deadcode
-      - errcheck
-      - gosimple
-      - govet
-      - ineffassign
-      - staticcheck
-      - structcheck
-      - typecheck
-      - unused
-      - varcheck
-      - asciicheck
-      - bodyclose
-      - dogsled
-      - exhaustive
-      - exportloopref
-      - gocognit
-      - goconst
-      - gofmt
-      - goheader
-      - goimports
-      - gosec
-      - misspell
-      - nakedret
-      - nestif
-      - noctx
-      - rowserrcheck
-      - sqlclosecheck
-      - unconvert
-      - unparam
-      - whitespace
-      - gocyclo
-      - golint
+  timeout: 10m
+  concurrency: 4
 
+linters:
+  disable-all: true
+  enable:
+    - unused
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    - asciicheck
+    - bodyclose
+    - dogsled
+    - exhaustive
+    - exportloopref
+    - gocognit
+    - goconst
+    - gofmt
+    - goheader
+    - goimports
+    - gosec
+    - misspell
+    - nakedret
+    - nestif
+    - noctx
+    - rowserrcheck
+    - sqlclosecheck
+    - unconvert
+    - unparam
+    - whitespace
+    - gocyclo
+    - revive
 
-  linters-settings:
-    staticcheck:
-      checks: ["all"]
+linters-settings:
+  staticcheck:
+    checks: ["all"]
