@@ -16,7 +16,7 @@ type ResultsResponse struct {
 }
 
 // TokenResponse is the data in the API response when logging in
-// The access token is used as the bearer token when making API requests
+// The access token is used as the X-bearer token when making API requests
 // The refresh token is used to obtain a new access token when it expires
 type TokenResponse struct {
 	Refresh string `json:"refresh"`
