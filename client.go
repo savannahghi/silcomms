@@ -212,7 +212,7 @@ func (s *client) MakeRequest(ctx context.Context, method, path string, queryPara
 	request.Header.Set("Content-Type", "application/json")
 
 	if authorised {
-		request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", s.accessToken))
+		request.Header.Set("Authorization", fmt.Sprintf("X-Bearer %s", s.accessToken))
 	}
 
 	if queryParams != nil {
