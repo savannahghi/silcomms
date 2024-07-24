@@ -26,10 +26,7 @@ var (
 
 	// accessTokenTimeout shows the access token expiry time.
 	// After the access token expires, one is required to obtain a new one
-	accessTokenTimeout = 60 * time.Minute
-
-	// refreshTokenTimeout shows the refresh token expiry time
-	refreshTokenTimeout = 24 * time.Hour
+	accessTokenTimeout = 59 * time.Minute
 )
 
 // AuthServerImpl defines the methods provided by
@@ -44,8 +41,7 @@ type client struct {
 	authServer AuthServerImpl
 	client     *http.Client
 
-	refreshToken       string
-	refreshTokenTicker *time.Ticker
+	refreshToken string
 
 	accessToken       string
 	accessTokenTicker *time.Ticker
@@ -86,46 +82,27 @@ func mustNewClient(authServer AuthServerImpl) *client {
 	return client
 }
 
-// executed as a go routine to update the api tokens when they timeout
+// executed as a go routine to update access and refresh token
 func (s *client) background() {
-	for {
-		select {
-		case t := <-s.refreshTokenTicker.C:
-			logrus.Println("SIL Comms Refresh Token updated at: ", t)
-			err := s.login()
-			if err != nil {
-				s.authFailed = true
-			}
-			s.authFailed = false
-
-		case t := <-s.accessTokenTicker.C:
-			logrus.Println("SIL Comms Access Token updated at: ", t)
-			err := s.refreshAccessToken()
-			if err != nil {
-				s.authFailed = true
-			}
+	for t := range s.accessTokenTicker.C {
+		logrus.Println("SIL Comms Access Token updated at: ", t)
+		err := s.refreshAccessToken()
+		if err != nil {
+			s.authFailed = true
+		} else {
 			s.authFailed = false
 		}
 	}
 }
 
 // setAccessToken sets the access token and updates the ticker timer
-func (s *client) setAccessToken(token string) {
-	s.accessToken = token
+func (s *client) setRefreshAndAccessToken(token *TokenResponse) {
+	s.accessToken = token.Access
+	s.refreshToken = token.Refresh
 	if s.accessTokenTicker != nil {
 		s.accessTokenTicker.Reset(accessTokenTimeout)
 	} else {
 		s.accessTokenTicker = time.NewTicker(accessTokenTimeout)
-	}
-}
-
-// setRefreshToken sets the access token and updates the ticker timer
-func (s *client) setRefreshToken(token string) {
-	s.refreshToken = token
-	if s.refreshTokenTicker != nil {
-		s.refreshTokenTicker.Reset(refreshTokenTimeout)
-	} else {
-		s.refreshTokenTicker = time.NewTicker(refreshTokenTimeout)
 	}
 }
 
@@ -149,12 +126,13 @@ func (s *client) login() error {
 		Refresh: resp.RefreshToken,
 	}
 
-	s.setRefreshToken(tokens.Refresh)
-	s.setAccessToken(tokens.Access)
+	s.setRefreshAndAccessToken(&tokens)
 
 	return nil
 }
 
+// refreshAccessToken makes a request to get
+// new access and refresh tokens
 func (s *client) refreshAccessToken() error {
 	ctx := context.Background()
 	resp, err := s.authServer.RefreshToken(ctx, s.refreshToken)
@@ -163,10 +141,11 @@ func (s *client) refreshAccessToken() error {
 	}
 
 	tokens := TokenResponse{
-		Access: resp.AccessToken,
+		Access:  resp.AccessToken,
+		Refresh: resp.RefreshToken,
 	}
 
-	s.setAccessToken(tokens.Access)
+	s.setRefreshAndAccessToken(&tokens)
 
 	return nil
 }
