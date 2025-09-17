@@ -19,15 +19,17 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4.1.7
+
       - name: Install Go
         uses: actions/setup-go@v5.0.1
         with:
           go-version: ${{ matrix.go-version }}
 
-      - name: Run lint
-        uses: golangci/golangci-lint-action@v3
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v8
         with:
-          version: latest
+          version: v2.4.0
+          problem-matchers: true
 
       - name: Install Go dependencies
         run: |
@@ -39,7 +41,7 @@ jobs:
 
       - name: Run test
         run: |
-          go-acc -o coverage.txt --ignore generated,cmd  ./... -- -timeout 60m
+          go-acc -o coverage.txt --ignore generated,cmd ./... -- -timeout 60m
           grep -v "generated.go" coverage.txt > coverage.out
           go tool cover -html=coverage.out -o coverage.html
           gocov convert coverage.out > coverage.json
@@ -54,7 +56,7 @@ jobs:
       - name: Send coverage
         env:
           COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: goveralls -coverprofile=coverage.out  -service=github
+        run: goveralls -coverprofile=coverage.out -service=github
 
       - name: Quality Gate - Test coverage shall be above threshold
         env:

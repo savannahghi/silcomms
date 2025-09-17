@@ -12,7 +12,8 @@ import (
 
 var (
 	// SenderID is the ID used to send the SMS
-	SenderID = serverutils.MustGetEnvVar("SIL_COMMS_SENDER_ID")
+	SenderID         = serverutils.MustGetEnvVar("SIL_COMMS_SENDER_ID")
+	AfyaMojaSenderID = serverutils.MustGetEnvVar("SIL_COMMS_AFYAMOJA_SENDER_ID")
 )
 
 // CommsLib is the SDK implementation for interacting with the sil communications API
@@ -60,8 +61,17 @@ func MustNewSILCommsLib(authServer AuthServerImpl) *CommsLib {
 // An asynchronous call is made to the app's sms_callback individually for each of the recipients with the SMS status.
 // message - message to be sent via the Bulk SMS
 // recipients - phone number(s) to receive the Bulk SMS
-func (l CommsLib) SendBulkSMS(ctx context.Context, message string, recipients []string) (*BulkSMSResponse, error) {
+func (l CommsLib) SendBulkSMS(ctx context.Context, message string, recipients []string, variant VariantsType) (*BulkSMSResponse, error) {
 	path := "/v1/sms/bulk/"
+
+	if !variant.IsValid() {
+		return nil, fmt.Errorf("invalid variant type: %s", variant)
+	}
+
+	if variant == AfyaMojaApp {
+		SenderID = AfyaMojaSenderID
+	}
+
 	payload := struct {
 		Sender     string   `json:"sender"`
 		Message    string   `json:"message"`

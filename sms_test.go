@@ -53,6 +53,7 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 		ctx        context.Context
 		message    string
 		recipients []string
+		variant    silcomms.VariantsType
 	}
 	tests := []struct {
 		name    string
@@ -67,8 +68,21 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 				recipients: []string{
 					gofakeit.Phone(),
 				},
+				variant: silcomms.BeWellApp,
 			},
 			wantErr: false,
+		},
+		{
+			name: "sad case: invalid variant",
+			args: args{
+				ctx:     context.Background(),
+				message: "This is a test",
+				recipients: []string{
+					gofakeit.Phone(),
+				},
+				variant: "InvalidVariant",
+			},
+			wantErr: true,
 		},
 		{
 			name: "sad case: invalid status code",
@@ -78,6 +92,7 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 				recipients: []string{
 					gofakeit.Phone(),
 				},
+				variant: silcomms.BeWellApp,
 			},
 			wantErr: true,
 		},
@@ -89,6 +104,7 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 				recipients: []string{
 					gofakeit.Phone(),
 				},
+				variant: silcomms.BeWellApp,
 			},
 			wantErr: true,
 		},
@@ -100,6 +116,7 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 				recipients: []string{
 					gofakeit.Phone(),
 				},
+				variant: silcomms.BeWellApp,
 			},
 			wantErr: true,
 		},
@@ -155,7 +172,7 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 				})
 			}
 
-			got, err := l.SendBulkSMS(tt.args.ctx, tt.args.message, tt.args.recipients)
+			got, err := l.SendBulkSMS(tt.args.ctx, tt.args.message, tt.args.recipients, tt.args.variant)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SILCommsLib.SendBulkSMS() error = %v, wantErr %v", err, tt.wantErr)
 				return
