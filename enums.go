@@ -18,6 +18,7 @@ func (s Status) IsValid() bool {
 	case StatusSuccess, StatusError, StatusFailure:
 		return true
 	}
+
 	return false
 }
 

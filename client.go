@@ -86,6 +86,7 @@ func mustNewClient(authServer AuthServerImpl) *client {
 func (s *client) background() {
 	for t := range s.accessTokenTicker.C {
 		logrus.Println("SIL Comms Access Token updated at: ", t)
+
 		err := s.refreshAccessToken()
 		if err != nil {
 			s.authFailed = true
@@ -98,6 +99,7 @@ func (s *client) background() {
 // setAccessToken sets the access token and updates the ticker timer
 func (s *client) setRefreshAndAccessToken(token *TokenResponse) {
 	s.accessToken = token.Access
+
 	s.refreshToken = token.Refresh
 	if s.accessTokenTicker != nil {
 		s.accessTokenTicker.Reset(accessTokenTimeout)
@@ -135,6 +137,7 @@ func (s *client) login() error {
 // new access and refresh tokens
 func (s *client) refreshAccessToken() error {
 	ctx := context.Background()
+
 	resp, err := s.authServer.RefreshToken(ctx, s.refreshToken)
 	if err != nil {
 		return err
@@ -160,12 +163,14 @@ func (s *client) MakeRequest(ctx context.Context, method, path string, queryPara
 	urlPath := fmt.Sprintf("%s%s", BaseURL, path)
 
 	var request *http.Request
+
 	switch method {
 	case http.MethodGet:
 		req, err := http.NewRequestWithContext(ctx, method, urlPath, nil)
 		if err != nil {
 			return nil, err
 		}
+
 		request = req
 
 	case http.MethodPost:

@@ -7,18 +7,11 @@ import (
 	"net/http"
 
 	"github.com/mitchellh/mapstructure"
-	"github.com/savannahghi/serverutils"
-)
-
-var (
-	// SenderID is the ID used to send the SMS
-	SenderID = serverutils.MustGetEnvVar("SIL_COMMS_SENDER_ID")
 )
 
 // CommsLib is the SDK implementation for interacting with the sil communications API
 type CommsLib struct {
-	client   *client
-	senderID string
+	client *client
 }
 
 // APIErrorResponse is the representation of an error response
@@ -36,8 +29,7 @@ func NewSILCommsLib(authServer AuthServerImpl) (*CommsLib, error) {
 	}
 
 	l := &CommsLib{
-		client:   client,
-		senderID: SenderID,
+		client: client,
 	}
 
 	return l, nil
@@ -48,8 +40,7 @@ func MustNewSILCommsLib(authServer AuthServerImpl) *CommsLib {
 	client := mustNewClient(authServer)
 
 	sdk := &CommsLib{
-		client:   client,
-		senderID: SenderID,
+		client: client,
 	}
 
 	return sdk
@@ -60,14 +51,14 @@ func MustNewSILCommsLib(authServer AuthServerImpl) *CommsLib {
 // An asynchronous call is made to the app's sms_callback individually for each of the recipients with the SMS status.
 // message - message to be sent via the Bulk SMS
 // recipients - phone number(s) to receive the Bulk SMS
-func (l CommsLib) SendBulkSMS(ctx context.Context, message string, recipients []string) (*BulkSMSResponse, error) {
+func (l CommsLib) SendBulkSMS(ctx context.Context, message string, recipients []string, senderID string) (*BulkSMSResponse, error) {
 	path := "/v1/sms/bulk/"
 	payload := struct {
 		Sender     string   `json:"sender"`
 		Message    string   `json:"message"`
 		Recipients []string `json:"recipients"`
 	}{
-		Sender:     SenderID,
+		Sender:     senderID,
 		Message:    message,
 		Recipients: recipients,
 	}
@@ -86,16 +77,19 @@ func (l CommsLib) SendBulkSMS(ctx context.Context, message string, recipients []
 		}
 
 		err := fmt.Errorf("invalid send bulk sms response code, got: %d, error detail: %s", response.StatusCode, apiErr.Data)
+
 		return nil, err
 	}
 
 	var resp APIResponse
+
 	err = json.NewDecoder(response.Body).Decode(&resp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode send bulk sms api response: %w", err)
 	}
 
 	var bulkSMS BulkSMSResponse
+
 	err = mapstructure.Decode(resp.Data, &bulkSMS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode send bulk sms data in api response: %w", err)
@@ -129,6 +123,7 @@ func (l CommsLib) SendPremiumSMS(ctx context.Context, message, msisdn, subscript
 
 	if response.StatusCode != http.StatusOK {
 		var apiErr APIErrorResponse
+
 		if err := json.NewDecoder(response.Body).Decode(&apiErr); err != nil {
 			return nil, fmt.Errorf("invalid send premium sms response code, got: %d", response.StatusCode)
 		}
@@ -137,12 +132,14 @@ func (l CommsLib) SendPremiumSMS(ctx context.Context, message, msisdn, subscript
 	}
 
 	var resp APIResponse
+
 	err = json.NewDecoder(response.Body).Decode(&resp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode send premium sms api response: %w", err)
 	}
 
 	var premiumSMS PremiumSMSResponse
+
 	err = mapstructure.Decode(resp.Data, &premiumSMS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode send premium sms data in api response: %w", err)
@@ -203,18 +200,21 @@ func (l CommsLib) GetSubscriptions(ctx context.Context, queryParams map[string]s
 	}
 
 	var resp APIResponse
+
 	err = json.NewDecoder(response.Body).Decode(&resp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode get subscriptions api response: %w", err)
 	}
 
 	var resultResponse ResultsResponse
+
 	err = mapstructure.Decode(resp.Data, &resultResponse)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode result response data in api response: %w", err)
 	}
 
 	var subscriptions []*Subscription
+
 	err = mapstructure.Decode(resultResponse.Results, &subscriptions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode subscriptions data in api response: %w", err)
