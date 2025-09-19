@@ -53,7 +53,9 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 		ctx        context.Context
 		message    string
 		recipients []string
+		senderID   string
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -67,6 +69,7 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 				recipients: []string{
 					gofakeit.Phone(),
 				},
+				senderID: "79079 SportPesa Jackpot",
 			},
 			wantErr: false,
 		},
@@ -78,6 +81,7 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 				recipients: []string{
 					gofakeit.Phone(),
 				},
+				senderID: "79079 SportPesa Jackpot",
 			},
 			wantErr: true,
 		},
@@ -89,6 +93,7 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 				recipients: []string{
 					gofakeit.Phone(),
 				},
+				senderID: "79079 SportPesa Jackpot",
 			},
 			wantErr: true,
 		},
@@ -100,10 +105,12 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 				recipients: []string{
 					gofakeit.Phone(),
 				},
+				senderID: "79079 SportPesa Jackpot",
 			},
 			wantErr: true,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			httpmock.Activate()
@@ -120,9 +127,11 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 							GUID: gofakeit.UUID(),
 						},
 					}
+
 					return httpmock.NewJsonResponse(http.StatusAccepted, resp)
 				})
 			}
+
 			if tt.name == "sad case: invalid status code" {
 				httpmock.RegisterResponder(http.MethodPost, fmt.Sprintf("%s/v1/sms/bulk/", silcomms.BaseURL), func(_ *http.Request) (*http.Response, error) {
 					return httpmock.NewJsonResponse(http.StatusUnauthorized, nil)
@@ -151,17 +160,21 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 							"message": 123456,
 						},
 					}
+
 					return httpmock.NewJsonResponse(http.StatusAccepted, resp)
 				})
 			}
 
-			got, err := l.SendBulkSMS(tt.args.ctx, tt.args.message, tt.args.recipients)
+			got, err := l.SendBulkSMS(tt.args.ctx, tt.args.message, tt.args.recipients, tt.args.senderID)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SILCommsLib.SendBulkSMS() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
+
 			if !tt.wantErr && got == nil {
 				t.Errorf("SILCommsLib.SendBulkSMS() expected response not to be nil for %v", tt.name)
+
 				return
 			}
 		})
@@ -175,6 +188,7 @@ func TestSILCommsLib_SendPremiumSMS(t *testing.T) {
 		msisdn       string
 		subscription string
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -221,6 +235,7 @@ func TestSILCommsLib_SendPremiumSMS(t *testing.T) {
 			wantErr: true,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			httpmock.Activate()
@@ -237,6 +252,7 @@ func TestSILCommsLib_SendPremiumSMS(t *testing.T) {
 							GUID: gofakeit.UUID(),
 						},
 					}
+
 					return httpmock.NewJsonResponse(http.StatusOK, resp)
 				})
 			}
@@ -269,6 +285,7 @@ func TestSILCommsLib_SendPremiumSMS(t *testing.T) {
 							"message": 123456,
 						},
 					}
+
 					return httpmock.NewJsonResponse(http.StatusOK, resp)
 				})
 			}
@@ -276,10 +293,13 @@ func TestSILCommsLib_SendPremiumSMS(t *testing.T) {
 			got, err := l.SendPremiumSMS(tt.args.ctx, tt.args.message, tt.args.msisdn, tt.args.subscription)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SILCommsLib.SendPremiumSMS() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
+
 			if !tt.wantErr && got == nil {
 				t.Errorf("SILCommsLib.SendPremiumSMS() expected response not to be nil for %v", tt.name)
+
 				return
 			}
 		})
@@ -288,12 +308,14 @@ func TestSILCommsLib_SendPremiumSMS(t *testing.T) {
 
 func TestSILCommsLib_ActivateSubscription(t *testing.T) {
 	ctx := context.Background()
+
 	type args struct {
 		ctx      context.Context
 		offer    string
 		msisdn   string
 		activate bool
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -328,6 +350,7 @@ func TestSILCommsLib_ActivateSubscription(t *testing.T) {
 			wantErr: true,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			httpmock.Activate()
@@ -346,6 +369,7 @@ func TestSILCommsLib_ActivateSubscription(t *testing.T) {
 							"msisdn": "123456",
 						},
 					}
+
 					return httpmock.NewJsonResponse(http.StatusOK, resp)
 				})
 			}
@@ -361,6 +385,7 @@ func TestSILCommsLib_ActivateSubscription(t *testing.T) {
 							"msisdn": "123456",
 						},
 					}
+
 					return httpmock.NewJsonResponse(http.StatusOK, resp)
 				})
 			}
@@ -376,6 +401,7 @@ func TestSILCommsLib_ActivateSubscription(t *testing.T) {
 				t.Errorf("SILCommsLib.ActivateSubscription() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if !tt.wantErr && got == false {
 				t.Errorf("SILCommsLib.ActivateSubscription() expected response not to be false for %v", tt.name)
 				return
@@ -386,10 +412,12 @@ func TestSILCommsLib_ActivateSubscription(t *testing.T) {
 
 func TestSILCommsLib_GetSubscriptions(t *testing.T) {
 	ctx := context.Background()
+
 	type args struct {
 		ctx         context.Context
 		queryParams map[string]string
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -418,6 +446,7 @@ func TestSILCommsLib_GetSubscriptions(t *testing.T) {
 			wantErr: true,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			httpmock.Activate()
@@ -451,6 +480,7 @@ func TestSILCommsLib_GetSubscriptions(t *testing.T) {
 							},
 						},
 					}
+
 					return httpmock.NewJsonResponse(http.StatusOK, resp)
 				})
 			}
@@ -464,10 +494,13 @@ func TestSILCommsLib_GetSubscriptions(t *testing.T) {
 			got, err := l.GetSubscriptions(tt.args.ctx, tt.args.queryParams)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SILCommsLib.GetSubscriptions() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
+
 			if !tt.wantErr && got == nil {
 				t.Errorf("SILCommsLib.GetSubscriptions() expected response not to be nil for %v", tt.name)
+
 				return
 			}
 		})

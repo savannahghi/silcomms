@@ -56,6 +56,7 @@ func TestSILclient_MakeRequest(t *testing.T) {
 		body        interface{}
 		authorised  bool
 	}
+
 	tests := []struct {
 		name    string
 		args    args
@@ -90,6 +91,7 @@ func TestSILclient_MakeRequest(t *testing.T) {
 			wantErr: true,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			httpmock.Activate()
@@ -113,6 +115,7 @@ func TestSILclient_MakeRequest(t *testing.T) {
 							Updated:    "",
 						},
 					}
+
 					return httpmock.NewJsonResponse(http.StatusOK, resp)
 				})
 			}
@@ -135,6 +138,7 @@ func TestSILclient_MakeRequest(t *testing.T) {
 							},
 						},
 					}
+
 					return httpmock.NewJsonResponse(http.StatusOK, resp)
 				})
 			}
