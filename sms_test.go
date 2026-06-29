@@ -165,7 +165,7 @@ func TestSILCommsLib_SendBulkSMS(t *testing.T) {
 				})
 			}
 
-			got, err := l.SendBulkSMS(tt.args.ctx, tt.args.message, tt.args.recipients, tt.args.senderID)
+			got, err := l.SendBulkSMS(tt.args.ctx, tt.args.message, tt.args.recipients, tt.args.senderID, "")
 			if (err != nil) != tt.wantErr {
 				t.Errorf("SILCommsLib.SendBulkSMS() error = %v, wantErr %v", err, tt.wantErr)
 

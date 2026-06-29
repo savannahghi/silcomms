@@ -51,16 +51,18 @@ func MustNewSILCommsLib(authServer AuthServerImpl) *CommsLib {
 // An asynchronous call is made to the app's sms_callback individually for each of the recipients with the SMS status.
 // message - message to be sent via the Bulk SMS
 // recipients - phone number(s) to receive the Bulk SMS
-func (l CommsLib) SendBulkSMS(ctx context.Context, message string, recipients []string, senderID string) (*BulkSMSResponse, error) {
+func (l CommsLib) SendBulkSMS(ctx context.Context, message string, recipients []string, senderID string, appID string) (*BulkSMSResponse, error) {
 	path := "/v1/sms/bulk/"
 	payload := struct {
 		Sender     string   `json:"sender"`
 		Message    string   `json:"message"`
 		Recipients []string `json:"recipients"`
+		App        string   `json:"app,omitempty"`
 	}{
 		Sender:     senderID,
 		Message:    message,
 		Recipients: recipients,
+		App:        appID,
 	}
 
 	response, err := l.client.MakeRequest(ctx, http.MethodPost, path, nil, payload, true)
