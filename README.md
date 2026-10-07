@@ -88,3 +88,5 @@ This library is distributed under the MIT license found in the [LICENSE](./LICEN
 file.
 
 <!-- Security scan triggered at 2026-09-05 07:57:59 -->
+
+<!-- Security scan triggered at 2026-10-07 11:56:33 -->
